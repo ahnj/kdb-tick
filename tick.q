@@ -19,18 +19,68 @@
 /2005.10.10 zero latency
 "kdb+tick 2.8 2014.03.12"
 
+// q tick.q schema_name log_dest_dir_name
 /q tick.q SRC [DST] [-p 5010] [-o h]
-system"l tick/",(src:first .z.x,enlist"sym"),".q"
+// load schema from tick/sym.q ()
+system"l tick/",(src:0N!first .z.x,enlist"sym"),".q"
 
 if[not system"p";system"p 5010"]
 
 \l tick/u.q
-\d .u
-ld:{if[not type key L::`$(-10_string L),string x;.[L;();:;()]];i::j::-11!(-2;L);if[0<=type i;-2 (string L)," is a corrupt log. Truncate to length ",(string last i)," and restart";exit 1];hopen L};
-tick:{init[];if[not min(`time`sym~2#key flip value@)each t;'`timesym];@[;`sym;`g#]each t;d::.z.D;if[l::count y;L::`$":",y,"/",x,10#".";l::ld d]};
 
-endofday:{end d;d+:1;if[l;hclose l;l::0(`.u.ld;d)]};
-ts:{if[d<x;if[d<x-1;system"t 0";'"more than one day?"];endofday[]]};
+// switch to .u namespace - this is where all of the code lives
+\d .u
+
+ld:{[dt]
+ // log file doesn't exist? create one
+ if[not type key L::`$(-10_string L),string dt;
+   .[L;();:;()]];
+ 
+ // this should be a no-op in fresh start, or on a new day
+ // perform the load, while setting globals .u.i and .u.j?
+ i::j::-11!(-2;L);
+ // validate load, tee out err msg if any
+ if[0<=type i;
+    -2 (string L)," is a corrupt log. Truncate to length ",(string last i)," and restart";
+    exit 1];
+ // what does this hopen do?
+ hopen L};
+
+// tick sets up table handle/sym mappings
+// performs schema assertions
+// 
+tick:{[src;dst]
+ init[];  // from u.q, setup table name to to handle;sym mappings
+ // ensure that all tables in .u.t start with field names `time and `sym
+ if[not min(`time`sym~2#key flip value@)each t;
+   '`timesym];
+ // apply grouped attribute to field `sym across all tables
+ @[;`sym;`g#]each t;
+ // why do the do this? cuz the global date might change on them? - see .u.endofday
+ d::.z.D;
+
+ if[l::count dst;                // .u.l -> does it exist? handle to tp log file
+   L::`$":",dst,"/",src,10#".";  // .u.L -> logfilename `:dst_dir/sym2008.09.11
+   l::ld d]                      // .u.l ->
+ };
+
+endofday:{
+ end d;  // invoke .u.end in u.q
+ d+:1;   // manually increment .u.d by one (don't trust .z.D?)
+ 
+ if[l;
+  hclose l;
+  l::0(`.u.ld;d)]  // why this 'recursive' network call to load?'  
+                   // why not do l::ld d like above?
+ };
+
+ts:{
+ if[d<x;
+   if[d<x-1;
+      system"t 0";
+      '"more than one day?"];
+   endofday[]]
+ };
 
 if[system"t";
  .z.ts:{pub'[t;value each t];@[`.;t;@[;`sym;`g#]0#];i::j;ts .z.D};
@@ -44,7 +94,12 @@ if[not system"t";system"t 1000";
  if[not -16=type first first x;a:"n"$a;x:$[0>type first x;a,x;(enlist(count first x)#a),x]];
  f:key flip value t;pub[t;$[0>type first x;enlist f!x;flip f!x]];if[l;l enlist (`upd;t;x);i+:1];}];
 
+// after all the tick code is defined, go to root namespace 
+// and kick off the tick process by invoking .u.tick with src-schema
+// and log-destination directory
 \d .
+
+// tick[src;dst]
 .u.tick[src;.z.x 1];
 
 \

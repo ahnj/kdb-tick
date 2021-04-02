@@ -2,8 +2,14 @@
 /2008.09.09 .k -> .q
 /2006.05.08 add
 
+// remember that this script is loaded by tick.q
+// therefore, the seven functions here share the namespace .u
+// with functions and variables defined in tick.q
+
 \d .u
-init:{w::t!(count t::tables`.)#()}
+// set .u.w, which is a dictionary of all table names to ?
+init:{
+ w::t!(count t::tables`.)#()}
 
 del:{w[x]_:w[x;;0]?y};.z.pc:{del[;x]each t};
 
