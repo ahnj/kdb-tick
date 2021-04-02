@@ -74,25 +74,63 @@ endofday:{
                    // why not do l::ld d like above?
  };
 
+// this .u.ts is NOT the same as .z.ts below!!!
 ts:{
- if[d<x;
+ if[d<x;  // did we cross into the next day?
+   // ensure we don't cross multiple date bounderies, how can this happen?
    if[d<x-1;
       system"t 0";
       '"more than one day?"];
    endofday[]]
  };
 
-if[system"t";
- .z.ts:{pub'[t;value each t];@[`.;t;@[;`sym;`g#]0#];i::j;ts .z.D};
- upd:{[t;x]
- if[not -16=type first first x;if[d<"d"$a:.z.P;.z.ts[]];a:"n"$a;x:$[0>type first x;a,x;(enlist(count first x)#a),x]];
- t insert x;if[l;l enlist (`upd;t;x);j+:1];}];
 
-if[not system"t";system"t 1000";
- .z.ts:{ts .z.D};
- upd:{[t;x]ts"d"$a:.z.P;
- if[not -16=type first first x;a:"n"$a;x:$[0>type first x;a,x;(enlist(count first x)#a),x]];
- f:key flip value t;pub[t;$[0>type first x;enlist f!x;flip f!x]];if[l;l enlist (`upd;t;x);i+:1];}];
+// still in .u namespace, but the code below
+// just runs in .u
+if[system"t";  // is timer running?
+ // define a function to invoke .u.pub every quantum
+ .z.ts:{
+   pub'[t;value each t];   // .u.pub[tablename;table]  -> "value tablename" -> returns table schema + data?
+   @[`.;t;@[;`sym;`g#]0#];  // re-establish erased attrs? 
+   i::j;
+   ts .z.D};  // why is this recursive call necessary?  why is date passed?
+ // insert[tablename;data]
+ upd:{[t;x]   // insert[tablename;data]
+   if[not -16=type first first x;  // assert that the first column of data is always type timestamp
+     if[d<"d"$a:.z.P;
+       .z.ts[]];
+     a:"n"$a;
+     x:$[0>type first x;
+        a,x;
+        (enlist(count first x)#a),x]];
+   // insert data to in memory table, then if .u.l log file handle, echo the same op to logfile in fs.
+   t insert x;
+   if[l;
+      l enlist (`upd;t;x);   // <-- this is the magic op
+      j+:1];                 // increment .u.j msg counter
+   } // end .u.upd
+ ]; // endif - is timer running?
+
+// if there is no timer active, set it to default 1sec.
+// and make sure it keeps 
+if[not system"t";
+   system"t 1000";
+   .z.ts:{ts .z.D};       // why is this necessary?  
+   upd:{[t;x]
+     ts"d"$a:.z.P;
+     if[not -16=type first first x;
+       a:"n"$a;
+       x:$[0>type first x;
+          a,x;
+          (enlist(count first x)#a),x]];
+     f:key flip value t;
+     // .u.pub[tablename;data]
+     pub[t;$[0>type first x;enlist f!x;flip f!x]];
+     if[l;
+        l enlist (`upd;t;x);   // exact same log to fs & increment as above
+        i+:1];
+     }  // .u.upd definition ends
+ ]; // end if
 
 // after all the tick code is defined, go to root namespace 
 // and kick off the tick process by invoking .u.tick with src-schema
