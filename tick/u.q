@@ -22,7 +22,16 @@ pub:{[t;x]
 
 add:{$[(count w x)>i:w[x;;0]?.z.w;.[`.u.w;(x;i;1);union;y];w[x],:enlist(.z.w;y)];(x;$[99=type v:value x;sel[v]y;@[0#v;`sym;`g#]])}
 
-sub:{if[x~`;:sub[;y]each t];if[not x in t;'x];del[x].z.w;add[x;y]}
+// this sub func is called at the very end of r.q init logic
+sub:{     // [tablenames;symbols]
+ if[x~`;  // ` ==> means all table names
+    :sub[;y]each t];  // : is a return, recursive projection??  WTF?
+ // error out if specifed table is not available
+ if[not x in t;
+   'x];
+ del[x].z.w;
+ add[x;y]
+ }
 
 
 end:{(neg union/[w[;;0]])@\:(`.u.end;x)}

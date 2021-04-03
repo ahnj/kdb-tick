@@ -32,18 +32,18 @@ if[not system"p";system"p 5010"]
 \d .u
 
 ld:{[dt]
- // log file doesn't exist? create one
+ // log file doesn't exist? create one and peform a 'touch' op
  if[not type key L::`$(-10_string L),string dt;
    .[L;();:;()]];
  
  // this should be a no-op in fresh start, or on a new day
  // perform the load, while setting globals .u.i and .u.j?
  i::j::-11!(-2;L);
- // validate load, tee out err msg if any
+ // validate load, tee out to stderr msg if any
  if[0<=type i;
     -2 (string L)," is a corrupt log. Truncate to length ",(string last i)," and restart";
     exit 1];
- // what does this hopen do?
+ // open file handle and return for assignment into .u.l
  hopen L};
 
 // tick sets up table handle/sym mappings
@@ -61,18 +61,18 @@ tick:{[src;dst]
 
  if[l::count dst;                // .u.l -> does it exist? handle to tp log file
    L::`$":",dst,"/",src,10#".";  // .u.L -> logfilename `:dst_dir/sym2008.09.11
-   l::ld d]                      // .u.l ->
- };
+   l::ld d]                      // .u.l -> log file handle is returned by .u.ld[d]
+ }; // end .u.tick
 
 endofday:{
- end d;  // invoke .u.end in u.q
+ end d;  // invoke .u.end in u.q.  this propigates .u.end[d] rpc to all downstream rdbs?
  d+:1;   // manually increment .u.d by one (don't trust .z.D?)
  
  if[l;
   hclose l;
   l::0(`.u.ld;d)]  // why this 'recursive' network call to load?'  
                    // why not do l::ld d like above?
- };
+ }; // end .u.endofday
 
 // this .u.ts is NOT the same as .z.ts below!!!
 ts:{
@@ -82,12 +82,12 @@ ts:{
       system"t 0";
       '"more than one day?"];
    endofday[]]
- };
+ }; // end .u.ts
 
-
+// ==========================================================================
 // still in .u namespace, but the code below
-// just runs in .u
-if[system"t";  // is timer running?
+// just runs in .u to setup tick's timer which performs the publish,log,forward routine
+if[system"t";  // timer runs - buffer is present, i & j
  // define a function to invoke .u.pub every quantum
  .z.ts:{
    pub'[t;value each t];   // .u.pub[tablename;table]  -> "value tablename" -> returns table schema + data?
@@ -111,8 +111,8 @@ if[system"t";  // is timer running?
    } // end .u.upd
  ]; // endif - is timer running?
 
-// if there is no timer active, set it to default 1sec.
-// and make sure it keeps 
+// if there is no timer active, set it to default 1sec - don't use it for publishing.
+// just publish on every data insertion upd, only use the .z.ts for day rollover.
 if[not system"t";
    system"t 1000";
    .z.ts:{ts .z.D};       // why is this necessary?  
@@ -139,6 +139,9 @@ if[not system"t";
 
 // tick[src;dst]
 .u.tick[src;.z.x 1];
+
+// .u.tick basically
+
 
 \
  globals used
